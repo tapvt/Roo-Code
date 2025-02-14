@@ -235,7 +235,7 @@ export class DeepResearchService {
 					this.progress.completedQueries = this.progress.completedQueries + 1
 					onProgressUpdated()
 
-					if (newDepth === 0) {
+					if (newDepth <= 0) {
 						return { learnings: allLearnings, visitedUrls: allUrls }
 					}
 
