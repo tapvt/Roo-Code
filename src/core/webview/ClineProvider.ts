@@ -1503,7 +1503,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						}
 						break
 					case "research.task": {
-						console.log("[ClineProvider] research.task", message)
 						const result = researchTaskPayloadSchema.safeParse(message.payload)
 
 						if (result.success && !this.deepResearchService) {
@@ -1524,7 +1523,6 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 						break
 					}
 					case "research.input": {
-						console.log("[ClineProvider] research.input", message)
 						const result = researchInputPayloadSchema.safeParse(message.payload)
 
 						if (result.success && this.deepResearchService) {
@@ -1534,15 +1532,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 						break
 					}
-					case "research.reload":
-						console.log("[ClineProvider] research.reload", message)
-						break
 					case "research.stop":
-						console.log("[ClineProvider] research.stop", message)
+						this.deepResearchService?.abort()
 						break
 					case "research.reset":
-						console.log("[ClineProvider] research.reset", message)
-						await this.deepResearchService?.abort()
+						this.deepResearchService?.abort()
 						this.deepResearchService = undefined
 						break
 				}

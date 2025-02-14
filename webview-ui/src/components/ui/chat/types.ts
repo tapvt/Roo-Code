@@ -30,7 +30,7 @@ export enum MessageAnnotationType {
 	EVENTS = "events",
 	SUGGESTED_QUESTIONS = "suggested_questions",
 	AGENT_EVENTS = "agent",
-	BADGES = "badges",
+	BADGE = "badge",
 }
 
 export type ImageData = {
@@ -43,11 +43,11 @@ export const DOCUMENT_FILE_TYPES: DocumentFileType[] = ["csv", "pdf", "txt", "do
 
 export type DocumentFile = {
 	id: string
-	name: string // The uploaded file name in the backend
-	size: number // The file size in bytes
+	name: string // The uploaded file name in the backend.
+	size: number // The file size in bytes.
 	type: DocumentFileType
-	url: string // The URL of the uploaded file in the backend
-	refs?: string[] // DocumentIDs of the uploaded file in the vector index
+	url: string // The URL of the uploaded file in the backend.
+	refs?: string[] // DocumentIDs of the uploaded file in the vector index.
 }
 
 export type DocumentFileData = {

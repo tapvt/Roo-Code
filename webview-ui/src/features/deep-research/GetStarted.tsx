@@ -50,7 +50,7 @@ export const GetStarted = () => {
 					<h2 className="my-0">Open Deep Research</h2>
 				</div>
 				<h3 className="my-0">
-					The ultimate <span className="text-vscode-badge-background">planner</span>.
+					The ultimate <span className="text-vscode-focusBorder">planner</span>.
 				</h3>
 			</div>
 			<div className="flex flex-col gap-2 bg-vscode-editor-background p-4 rounded-sm">
@@ -91,7 +91,9 @@ export const GetStarted = () => {
 						control={control}
 						render={({ field: { value, onChange } }) => (
 							<div className="flex flex-row items-center gap-2">
-								<div className="w-14 shrink-0">Breadth</div>
+								<div className="w-20 whitespace-nowrap shrink-0">
+									Breadth <span className="text-muted-foreground">({value})</span>
+								</div>
 								<Slider
 									min={1}
 									max={10}
@@ -107,7 +109,9 @@ export const GetStarted = () => {
 						control={control}
 						render={({ field: { value, onChange } }) => (
 							<div className="flex flex-row items-center gap-2">
-								<div className="w-14 shrink-0">Depth</div>
+								<div className="w-20 whitespace-nowrap shrink-0">
+									Depth <span className="text-muted-foreground">({value})</span>
+								</div>
 								<Slider
 									min={1}
 									max={10}

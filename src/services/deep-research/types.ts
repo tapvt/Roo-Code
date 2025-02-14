@@ -16,17 +16,13 @@ export type ResearchStep = {
 	depth: number
 	learnings?: string[]
 	visitedUrls?: string[]
-	onProgress: (progress: ResearchProgress) => void
-	onNewLearnings: (learnings: ResearchLearnings & { urls: string[] }) => void
+	onProgressUpdated: () => void
+	onGeneratedQueries: (queries: ResearchQuery[]) => void
+	onExtractedLearnings: (learnings: ResearchLearnings & { urls: string[] }) => void
 }
 
 export type ResearchProgress = {
-	currentDepth: number
-	totalDepth: number
-	currentBreadth: number
-	totalBreadth: number
-	currentQuery?: string
-	totalQueries: number
+	expectedQueries: number
 	completedQueries: number
 	progressPercentage: number
 }
@@ -35,6 +31,13 @@ export type ResearchResult = {
 	learnings: string[]
 	visitedUrls: string[]
 }
+
+export const researchQuerySchema = z.object({
+	query: z.string(),
+	researchGoal: z.string(),
+})
+
+export type ResearchQuery = z.infer<typeof researchQuerySchema>
 
 export const researchLearningsSchema = z.object({
 	learnings: z.array(z.string()),

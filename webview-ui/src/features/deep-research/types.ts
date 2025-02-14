@@ -1,5 +1,7 @@
 import { z } from "zod"
 
+import { MessageAnnotationType } from "@/components/ui/chat"
+
 export const sessionSchema = z.object({
 	modelId: z.string().min(1),
 	breadth: z.number().min(1).max(10),
@@ -18,23 +20,30 @@ export const loadingSchema = z.object({
 
 export type Loading = z.infer<typeof loadingSchema>
 
-export const progressSchema = z.object({
-	currentQuery: z.string().optional(),
+export const researchProgressSchema = z.object({
 	completedQueries: z.number().min(0),
-	totalQueries: z.number().min(0),
-	currentDepth: z.number().min(0),
-	totalDepth: z.number().min(0),
-	currentBreadth: z.number().min(0),
-	totalBreadth: z.number().min(0),
+	expectedQueries: z.number().min(0),
 	progressPercentage: z.number().min(0).max(100),
 })
 
-export type Progress = z.infer<typeof progressSchema>
+export type ResearchProgress = z.infer<typeof researchProgressSchema>
 
-export const learningsSchema = z.object({
-	learnings: z.array(z.string()),
-	followUpQuestions: z.array(z.string()),
-	urls: z.array(z.string()),
+export const outputSchema = z.object({
+	content: z.string().min(1),
+	annotations: z
+		.array(
+			z.object({
+				type: z.nativeEnum(MessageAnnotationType),
+				data: z.unknown(),
+			}),
+		)
+		.optional(),
 })
 
-export type Learnings = z.infer<typeof learningsSchema>
+export type Output = z.infer<typeof outputSchema>
+
+export const researchStatusSchema = z.object({
+	status: z.enum(["idle", "followUp", "research", "done", "aborted"]),
+})
+
+export type ResearchStatus = z.infer<typeof researchStatusSchema>

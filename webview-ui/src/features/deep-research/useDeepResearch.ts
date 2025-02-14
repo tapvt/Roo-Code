@@ -11,10 +11,6 @@ export const useDeepResearch = (): ChatHandler => {
 	const [input, setInput] = useState("")
 	const [messages, setMessages] = useState<Message[]>([])
 
-	const reload = () => {
-		vscode.postMessage({ type: "research.reload" })
-	}
-
 	const start = (options?: { data?: Session }) => {
 		if (options?.data) {
 			const session = options.data
@@ -52,7 +48,6 @@ export const useDeepResearch = (): ChatHandler => {
 		input,
 		setInput,
 		messages,
-		reload,
 		start,
 		stop,
 		append,

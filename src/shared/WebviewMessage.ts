@@ -94,7 +94,6 @@ export interface WebviewMessage {
 		| "checkpointRestore"
 		| "research.task"
 		| "research.input"
-		| "research.reload"
 		| "research.stop"
 		| "research.reset"
 	text?: string

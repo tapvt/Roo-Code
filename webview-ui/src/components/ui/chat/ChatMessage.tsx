@@ -35,7 +35,7 @@ export function ChatMessage({ message, isHeaderVisible, isLast, isLoading, appen
 	const badges = useMemo(
 		() =>
 			message.annotations
-				?.filter(({ type }) => type === MessageAnnotationType.BADGES)
+				?.filter(({ type }) => type === MessageAnnotationType.BADGE)
 				.map(({ data }) => data as BadgeData),
 		[message.annotations],
 	)
