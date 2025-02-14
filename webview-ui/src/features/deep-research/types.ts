@@ -3,12 +3,13 @@ import { z } from "zod"
 import { MessageAnnotationType } from "@/components/ui/chat"
 
 export const sessionSchema = z.object({
-	modelId: z.string().min(1),
-	breadth: z.number().min(1).max(10),
-	depth: z.number().min(1).max(10),
-	query: z.string().min(1),
-	firecrawlApiKey: z.string().min(1),
-	openaiApiKey: z.string().min(1),
+	providerId: z.string().min(1, { message: "Select a configuration profile." }),
+	providerApiKey: z.string().min(1, { message: "Provider API key is required." }),
+	firecrawlApiKey: z.string().min(1, { message: "Firecrawl API key is required." }),
+	modelId: z.string().min(1, { message: "Model is required." }),
+	breadth: z.number().min(1).max(10, { message: "Breadth must be between 1 and 10." }),
+	depth: z.number().min(1).max(10, { message: "Depth must be between 1 and 10." }),
+	query: z.string().min(1, { message: "Research topic is required." }),
 })
 
 export type Session = z.infer<typeof sessionSchema>

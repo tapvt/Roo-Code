@@ -1,10 +1,12 @@
 import { createOpenAI } from "@ai-sdk/openai"
+import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import FirecrawlApp, { SearchResponse } from "@mendable/firecrawl-js"
 import { generateObject, LanguageModel, Message, streamText } from "ai"
 import { z } from "zod"
 import pLimit from "p-limit"
 
 import { ExtensionMessage } from "../../shared/ExtensionMessage"
+import { ResearchTaskPayload } from "../../shared/WebviewMessage"
 import { ClineProvider } from "../../core/webview/ClineProvider"
 
 import {
@@ -20,6 +22,14 @@ import {
 import { truncatePrompt, trimPrompt } from "./utils/prompt"
 
 export class DeepResearchService {
+	public readonly providerId: string
+	public readonly providerApiKey: string
+	public readonly firecrawlApiKey: string
+	public readonly modelId: string
+	public readonly breadth: number
+	public readonly depth: number
+	public readonly concurrency: number
+
 	private providerRef: WeakRef<ClineProvider>
 	private firecrawl: FirecrawlApp
 	private model: LanguageModel
@@ -30,22 +40,28 @@ export class DeepResearchService {
 	private messages: Message[] = []
 
 	constructor(
+		{ providerId, providerApiKey, firecrawlApiKey, modelId, breadth, depth }: ResearchTaskPayload["session"],
 		clineProvider: ClineProvider,
-		public readonly modelId: string,
-		public readonly breadth: number,
-		public readonly depth: number,
-		public readonly concurrency: number,
-		public readonly firecrawlApiKey: string,
-		public readonly openaiApiKey: string,
 	) {
+		this.providerId = providerId
+		this.providerApiKey = providerApiKey
+		this.firecrawlApiKey = firecrawlApiKey
+		this.modelId = modelId
+		this.breadth = breadth
+		this.depth = depth
+		this.concurrency = 2
+
 		this.providerRef = new WeakRef(clineProvider)
 
 		this.firecrawl = new FirecrawlApp({ apiKey: firecrawlApiKey })
 
-		this.model = createOpenAI({ apiKey: openaiApiKey })(modelId, {
-			// reasoningEffort: "medium",
-			structuredOutputs: true,
-		})
+		if (providerId === "openai-native") {
+			const openai = createOpenAI({ apiKey: providerApiKey })
+			this.model = openai(modelId, { structuredOutputs: true })
+		} else {
+			const openrouter = createOpenRouter({ apiKey: providerApiKey })
+			this.model = openrouter(modelId)
+		}
 	}
 
 	/**
@@ -72,34 +88,34 @@ export class DeepResearchService {
 	}
 
 	private chatSystemPrompt() {
-		// return trimPrompt(`
-		// 	You are an expert research assistant helping to explain and clarify research findings. Follow these guidelines:
-
-		// 	- You always answer the with markdown formatting. You will be penalized if you do not answer with markdown when it would be possible.
-		// 	- The markdown formatting you support: headings, bold, italic, links, tables, lists, code blocks, and blockquotes.
-		// 	- You do not support images and never include images. You will be penalized if you render images.
-		// 	- You also support Mermaid formatting. You will be penalized if you do not render Mermaid diagrams when it would be possible.
-		// 	- The Mermaid diagrams you support: sequenceDiagram, flowChart, classDiagram, stateDiagram, erDiagram, gantt, journey, gitGraph, pie.
-		// 	- Reference specific findings from the research when answering.
-		// 	- Be precise and detailed in explanations.
-		// 	- If asked about something outside the research scope, acknowledge this and stick to what was actually researched.
-		// 	- Feel free to make connections between different parts of the research.
-		// 	- When speculating or making inferences beyond the direct research, clearly label these as such.
-		// 	- If asked about sources, refer to the URLs provided in the research.
-		// 	- Maintain a professional, analytical tone.
-		// 	- Never include images in responses.
-		// `)
-
 		return trimPrompt(`
-			You are a general answering assistant that can comply with any request.
+			You are an expert research assistant helping to explain and clarify research findings. Follow these guidelines:
 
-			You always answer the with markdown formatting. You will be penalized if you do not answer with markdown when it would be possible.
-			The markdown formatting you support: headings, bold, italic, links, tables, lists, code blocks, and blockquotes.
-			You do not support images and never include images. You will be penalized if you render images.
+			- You always answer the with markdown formatting. You will be penalized if you do not answer with markdown when it would be possible.
+			- The markdown formatting you support: headings, bold, italic, links, tables, lists, code blocks, and blockquotes.
+			- You do not support images and never include images. You will be penalized if you render images.
+			- You also support Mermaid formatting. You will be penalized if you do not render Mermaid diagrams when it would be possible.
+			- The Mermaid diagrams you support: sequenceDiagram, flowChart, classDiagram, stateDiagram, erDiagram, gantt, journey, gitGraph, pie.
+			- Reference specific findings from the research when answering.
+			- Be precise and detailed in explanations.
+			- If asked about something outside the research scope, acknowledge this and stick to what was actually researched.
+			- Feel free to make connections between different parts of the research.
+			- When speculating or making inferences beyond the direct research, clearly label these as such.
+			- If asked about sources, refer to the URLs provided in the research.
+			- Maintain a professional, analytical tone.
+			- Never include images in responses.
+		`)
 
-			You also support Mermaid formatting. You will be penalized if you do not render Mermaid diagrams when it would be possible.
-			The Mermaid diagrams you support: sequenceDiagram, flowChart, classDiagram, stateDiagram, erDiagram, gantt, journey, gitGraph, pie.
-        `)
+		// return trimPrompt(`
+		// 	You are a general answering assistant that can comply with any request.
+
+		// 	You always answer the with markdown formatting. You will be penalized if you do not answer with markdown when it would be possible.
+		// 	The markdown formatting you support: headings, bold, italic, links, tables, lists, code blocks, and blockquotes.
+		// 	You do not support images and never include images. You will be penalized if you render images.
+
+		// 	You also support Mermaid formatting. You will be penalized if you do not render Mermaid diagrams when it would be possible.
+		// 	The Mermaid diagrams you support: sequenceDiagram, flowChart, classDiagram, stateDiagram, erDiagram, gantt, journey, gitGraph, pie.
+		// `)
 	}
 
 	/**
@@ -476,12 +492,48 @@ export class DeepResearchService {
 
 		this.inquiry.query = query
 
+		const onProgressUpdated = () => {
+			const { expectedQueries, completedQueries } = this.progress
+			this.progress.progressPercentage = Math.round((completedQueries / expectedQueries) * 100)
+			this.postMessage({ type: "research.progress", text: JSON.stringify(this.progress) })
+		}
+
+		const onGeneratedQueries = (queries: ResearchQuery[]) =>
+			this.postMessage({
+				type: "research.output",
+				text: JSON.stringify({
+					content: `Generated ${queries.length} topics to research.\n\n${queries.map(({ query }) => `- ${query}`).join("\n")}`,
+					annotations: [
+						{
+							type: "badge",
+							data: { label: "Idea", variant: "outline" },
+						},
+					],
+				}),
+			})
+
+		const onExtractedLearnings = (learnings: ResearchLearnings & { urls: string[] }) =>
+			this.postMessage({
+				type: "research.output",
+				text: JSON.stringify({
+					content: `Extracted ${learnings.learnings.length} learnings from ${learnings.urls.length} sources.\n\n${learnings.urls.map((url) => `- ${url}`).join("\n")}`,
+					annotations: [
+						{
+							type: "badge",
+							data: { label: "Learning", variant: "outline" },
+						},
+					],
+				}),
+			})
+
 		// Calculate total expected queries across all depth levels.
 		// At each level, the breadth is halved, so level 1 has full breadth,
 		// level 2 has breadth/2, level 3 has breadth/4, etc.
 		for (let i = this.depth; i > 0; i--) {
 			this.progress.expectedQueries += Math.ceil(this.breadth / Math.pow(2, this.depth - i))
 		}
+
+		onProgressUpdated()
 
 		const { learnings, visitedUrls } = await this.withLoading(
 			() =>
@@ -491,37 +543,9 @@ export class DeepResearchService {
 					depth: this.depth,
 					learnings: [],
 					visitedUrls: [],
-					onProgressUpdated: () => {
-						const { expectedQueries, completedQueries } = this.progress
-						this.progress.progressPercentage = Math.round((completedQueries / expectedQueries) * 100)
-						this.postMessage({ type: "research.progress", text: JSON.stringify(this.progress) })
-					},
-					onGeneratedQueries: (queries) =>
-						this.postMessage({
-							type: "research.output",
-							text: JSON.stringify({
-								content: `Generated ${queries.length} topics to research.\n\n${queries.map(({ query }) => `- ${query}`).join("\n")}`,
-								annotations: [
-									{
-										type: "badge",
-										data: { label: "Idea", variant: "outline" },
-									},
-								],
-							}),
-						}),
-					onExtractedLearnings: (learnings) =>
-						this.postMessage({
-							type: "research.output",
-							text: JSON.stringify({
-								content: `Extracted ${learnings.learnings.length} learnings from ${learnings.urls.length} sources.\n\n${learnings.urls.map((url) => `- ${url}`).join("\n")}`,
-								annotations: [
-									{
-										type: "badge",
-										data: { label: "Learning", variant: "outline" },
-									},
-								],
-							}),
-						}),
+					onProgressUpdated,
+					onGeneratedQueries,
+					onExtractedLearnings,
 				}),
 			"Researching...",
 		)

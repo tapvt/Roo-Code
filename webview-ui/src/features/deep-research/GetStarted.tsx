@@ -1,49 +1,59 @@
-import { useMemo, useState } from "react"
-import { useForm, FormProvider, useFormContext, Controller } from "react-hook-form"
+import { useCallback, useEffect } from "react"
+import { useForm, FormProvider, Controller } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { BrainCircuit, Check, ChevronsUpDown } from "lucide-react"
+import { BrainCircuit } from "lucide-react"
 
-import { openAiNativeModels } from "../../../../src/shared/api"
-
-import { cn } from "@/lib/utils"
-import {
-	Button,
-	Slider,
-	Command,
-	CommandEmpty,
-	CommandGroup,
-	CommandInput,
-	CommandItem,
-	CommandList,
-	Popover,
-	PopoverContent,
-	PopoverTrigger,
-	AutosizeTextarea,
-	Input,
-} from "@/components/ui"
+import { Button, Slider, AutosizeTextarea, Input } from "@/components/ui"
 
 import { useSession } from "./useSession"
+import { useProvider } from "./useProvider"
 import { Session, sessionSchema } from "./types"
+import { Providers } from "./Providers"
+import { Models } from "./Models"
 
 export const GetStarted = () => {
 	const { setSession } = useSession()
+	const { provider, setProviderValue } = useProvider()
 
 	const form = useForm<Session>({
 		resolver: zodResolver(sessionSchema),
 		defaultValues: {
+			providerId: provider?.providerId ?? "",
+			modelId: "o3-mini",
+			providerApiKey: provider?.providerApiKey ?? "",
+			firecrawlApiKey: provider?.firecrawlApiKey ?? "",
 			breadth: 4,
 			depth: 2,
-			modelId: "o3-mini",
 			query: "",
-			firecrawlApiKey: "",
-			openaiApiKey: "",
 		},
 	})
 
-	const { handleSubmit, control } = form
+	const {
+		handleSubmit,
+		control,
+		setValue,
+		formState: { errors },
+	} = form
+
+	const onSubmit = useCallback(
+		(data: Session) => {
+			// This is the only value we care to persist for now.
+			setProviderValue("firecrawlApiKey", data.firecrawlApiKey)
+			setSession(data)
+		},
+		[setSession, setProviderValue],
+	)
+
+	useEffect(() => {
+		if (provider) {
+			setValue("providerId", provider.providerId ?? "")
+			setValue("providerApiKey", provider.providerApiKey ?? "")
+			setValue("firecrawlApiKey", provider.firecrawlApiKey ?? "")
+		}
+	}, [provider, setValue])
 
 	return (
-		<div className="flex flex-col gap-4 w-full max-w-sm px-4">
+		<div className="flex flex-col gap-4 w-full max-w-sm p-4">
 			<div className="flex flex-col items-center justify-center gap-2">
 				<div className="flex flex-row items-center justify-center gap-2">
 					<BrainCircuit className="text-muted" />
@@ -61,31 +71,42 @@ export const GetStarted = () => {
 				</div>
 			</div>
 			<FormProvider {...form}>
-				<form onSubmit={handleSubmit(setSession)} className="flex flex-col gap-3">
+				<form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
 					<div className="flex flex-col gap-1">
-						<div>OpenAI Model</div>
-						<Models />
+						<div>Configuration Profile</div>
+						<Providers />
+						<div className="text-muted-foreground">
+							Only profiles using the OpenRouter and OpenAI providers are currently supported.
+						</div>
 					</div>
-					<Controller
-						name="openaiApiKey"
-						control={control}
-						render={({ field }) => (
+					{provider && (
+						<>
 							<div className="flex flex-col gap-1">
-								<div>OpenAI API Key</div>
-								<Input {...field} type="password" placeholder="sk-..." className="flex-1" />
+								<div>{provider.providerName} Model</div>
+								<Models />
 							</div>
-						)}
-					/>
-					<Controller
-						name="firecrawlApiKey"
-						control={control}
-						render={({ field }) => (
-							<div className="flex flex-col gap-1">
-								<div>Firecrawl API Key</div>
-								<Input {...field} type="password" placeholder="fc-..." className="flex-1" />
-							</div>
-						)}
-					/>
+							<Controller
+								name="providerApiKey"
+								control={control}
+								render={({ field }) => (
+									<div className="xflex flex-col gap-1 hidden">
+										{provider ? <div>{provider.providerName} API Key</div> : <div>API Key</div>}
+										<Input {...field} type="password" placeholder="sk-..." className="flex-1" />
+									</div>
+								)}
+							/>
+							<Controller
+								name="firecrawlApiKey"
+								control={control}
+								render={({ field }) => (
+									<div className="flex flex-col gap-1">
+										<div>Firecrawl API Key</div>
+										<Input {...field} type="password" placeholder="fc-..." className="flex-1" />
+									</div>
+								)}
+							/>
+						</>
+					)}
 					<Controller
 						name="breadth"
 						control={control}
@@ -136,59 +157,15 @@ export const GetStarted = () => {
 						)}
 					/>
 					<Button type="submit">Start Researching</Button>
+					<div className="flex flex-col gap-1">
+						{Object.entries(errors).map(([field, error]) => (
+							<div key={field} className="text-red-500">
+								{error?.message}
+							</div>
+						))}
+					</div>
 				</form>
 			</FormProvider>
 		</div>
-	)
-}
-
-export function Models() {
-	const [open, setOpen] = useState(false)
-	const { control } = useFormContext<Session>()
-	const models = useMemo(() => Object.keys(openAiNativeModels), [])
-
-	return (
-		<Controller
-			name="modelId"
-			control={control}
-			render={({ field: { value, onChange } }) => (
-				<Popover open={open} onOpenChange={setOpen}>
-					<PopoverTrigger asChild>
-						<Button
-							variant="combobox"
-							role="combobox"
-							aria-expanded={open}
-							className={cn(open && "border-vscode-focusBorder")}>
-							{value ? models.find((model) => model === value) : "Select"}
-							<ChevronsUpDown className="opacity-50" />
-						</Button>
-					</PopoverTrigger>
-					<PopoverContent className="max-w-[200px] p-0">
-						<Command>
-							<CommandInput placeholder="Search" className="h-9" />
-							<CommandList>
-								<CommandEmpty>No model found.</CommandEmpty>
-								<CommandGroup>
-									{models.map((model) => (
-										<CommandItem
-											key={model}
-											value={model}
-											onSelect={(currentValue) => {
-												onChange(currentValue)
-												setOpen(false)
-											}}>
-											{model}
-											<Check
-												className={cn("ml-auto", value === model ? "opacity-100" : "opacity-0")}
-											/>
-										</CommandItem>
-									))}
-								</CommandGroup>
-							</CommandList>
-						</Command>
-					</PopoverContent>
-				</Popover>
-			)}
-		/>
 	)
 }

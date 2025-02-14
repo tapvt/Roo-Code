@@ -13,16 +13,21 @@ type DeepResearchProps = {
 export const DeepResearch = ({ isHidden }: DeepResearchProps) => {
 	const { session } = useSession()
 
-	return (
-		<div className={cn("fixed inset-0 flex flex-col overflow-hidden", { hidden: isHidden })}>
-			{session ? (
+	if (session) {
+		return (
+			<div className={cn("fixed inset-0 flex flex-col", { hidden: isHidden })}>
 				<Session />
-			) : (
-				<div className="flex flex-col items-center justify-center h-full gap-4">
-					<GetStarted />
-					<History />
-				</div>
-			)}
+			</div>
+		)
+	}
+
+	return (
+		<div
+			className={cn("lex flex-col items-center justify-center h-full gap-4 overflow-y-auto py-4", {
+				hidden: isHidden,
+			})}>
+			<GetStarted />
+			<History />
 		</div>
 	)
 }

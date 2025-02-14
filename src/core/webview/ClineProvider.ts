@@ -66,6 +66,7 @@ type SecretKey =
 	| "mistralApiKey"
 	| "unboundApiKey"
 	| "requestyApiKey"
+	| "firecrawlApiKey"
 
 type GlobalStateKey =
 	| "apiProvider"
@@ -1505,25 +1506,30 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					case "research.task": {
 						const result = researchTaskPayloadSchema.safeParse(message.payload)
 
-						if (result.success && !this.deepResearchService) {
-							const { modelId, breadth, depth, query, firecrawlApiKey, openaiApiKey } =
-								result.data.session
-							this.deepResearchService = new DeepResearchService(
-								this,
-								modelId,
-								breadth,
-								depth,
-								2,
-								firecrawlApiKey,
-								openaiApiKey,
+						if (!result.success) {
+							console.warn(
+								`[ClineProvider#research.task] Invalid payload: ${JSON.stringify(message.payload)}`,
 							)
-							this.deepResearchService.append(query)
+							break
+						}
+
+						if (result.success && !this.deepResearchService) {
+							const { session } = result.data
+							this.deepResearchService = new DeepResearchService(session, this)
+							this.deepResearchService.append(session.query)
 						}
 
 						break
 					}
 					case "research.input": {
 						const result = researchInputPayloadSchema.safeParse(message.payload)
+
+						if (!result.success) {
+							console.warn(
+								`[ClineProvider#research.input] Invalid payload: ${JSON.stringify(message.payload)}`,
+							)
+							break
+						}
 
 						if (result.success && this.deepResearchService) {
 							const { content } = result.data.message
@@ -1685,6 +1691,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			requestyModelId,
 			requestyModelInfo,
 			modelTemperature,
+			firecrawlApiKey,
 		} = apiConfiguration
 		await this.updateGlobalState("apiProvider", apiProvider)
 		await this.updateGlobalState("apiModelId", apiModelId)
@@ -1730,6 +1737,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 		await this.updateGlobalState("requestyModelId", requestyModelId)
 		await this.updateGlobalState("requestyModelInfo", requestyModelInfo)
 		await this.updateGlobalState("modelTemperature", modelTemperature)
+		await this.storeSecret("firecrawlApiKey", firecrawlApiKey)
 		if (this.cline) {
 			this.cline.api = buildApiHandler(apiConfiguration)
 		}
@@ -2609,6 +2617,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			requestyModelId,
 			requestyModelInfo,
 			modelTemperature,
+			firecrawlApiKey,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
 			this.getGlobalState("apiModelId") as Promise<string | undefined>,
@@ -2689,6 +2698,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("requestyModelId") as Promise<string | undefined>,
 			this.getGlobalState("requestyModelInfo") as Promise<ModelInfo | undefined>,
 			this.getGlobalState("modelTemperature") as Promise<number | undefined>,
+			this.getSecret("firecrawlApiKey") as Promise<string | undefined>,
 		])
 
 		let apiProvider: ApiProvider
@@ -2751,6 +2761,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 				requestyModelId,
 				requestyModelInfo,
 				modelTemperature,
+				firecrawlApiKey,
 			},
 			lastShownAnnouncementId,
 			customInstructions,
@@ -2905,6 +2916,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			"mistralApiKey",
 			"unboundApiKey",
 			"requestyApiKey",
+			"firecrawlApiKey",
 		]
 		for (const key of secretKeys) {
 			await this.storeSecret(key, undefined)

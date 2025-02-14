@@ -136,7 +136,7 @@ export const Session = () => {
 					</div>
 				) : progress && progress.progressPercentage < 100 ? (
 					<div className="border-t border-vscode-editor-background p-4">
-						<Progress value={progress.progressPercentage} />
+						<Progress value={Math.max(progress.progressPercentage, 5)} />
 					</div>
 				) : null}
 			</Chat>

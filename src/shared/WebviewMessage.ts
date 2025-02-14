@@ -146,12 +146,13 @@ export type CheckpointRestorePayload = z.infer<typeof checkoutRestorePayloadSche
 
 export const researchTaskPayloadSchema = z.object({
 	session: z.object({
+		providerId: z.string(),
+		providerApiKey: z.string(),
+		firecrawlApiKey: z.string(),
 		modelId: z.string(),
 		breadth: z.number(),
 		depth: z.number(),
 		query: z.string(),
-		firecrawlApiKey: z.string(),
-		openaiApiKey: z.string(),
 	}),
 })
 

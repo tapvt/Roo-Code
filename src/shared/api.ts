@@ -66,6 +66,7 @@ export interface ApiHandlerOptions {
 	requestyModelId?: string
 	requestyModelInfo?: ModelInfo
 	modelTemperature?: number
+	firecrawlApiKey?: string
 }
 
 export type ApiConfiguration = ApiHandlerOptions & {
