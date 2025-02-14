@@ -475,7 +475,7 @@ export class DeepResearchService {
 		if (content) {
 			await this.postMessage({
 				type: "research.output",
-				text: JSON.stringify({ content, annotations: [{ type: "badge" }] }),
+				text: JSON.stringify({ content }),
 			})
 		}
 	}
