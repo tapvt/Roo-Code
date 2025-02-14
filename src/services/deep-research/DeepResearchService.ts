@@ -4,6 +4,7 @@ import FirecrawlApp, { SearchResponse } from "@mendable/firecrawl-js"
 import { generateObject, LanguageModel, Message, streamText } from "ai"
 import { z } from "zod"
 import pLimit from "p-limit"
+import * as vscode from "vscode"
 
 import { ExtensionMessage } from "../../shared/ExtensionMessage"
 import { ResearchTaskPayload } from "../../shared/WebviewMessage"
@@ -592,6 +593,13 @@ export class DeepResearchService {
 
 	private async transitionToDone() {
 		this.status = "done"
+
+		const document = await vscode.workspace.openTextDocument({
+			content: this.inquiry.report,
+			language: "markdown",
+		})
+
+		await vscode.window.showTextDocument(document, { preview: false })
 
 		this.messages.push({
 			id: crypto.randomUUID(),
