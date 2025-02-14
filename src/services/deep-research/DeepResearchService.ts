@@ -171,8 +171,12 @@ export class DeepResearchService {
 		const queries = await this.generateQueries({ query, learnings, breadth })
 		onGeneratedQueries(queries)
 
-		this.progress.expectedQueries = this.progress.expectedQueries - (this.breadth - queries.length)
-		onProgressUpdated()
+		if (queries.length < breadth) {
+			const delta = breadth - queries.length
+			this.progress.expectedQueries = this.progress.expectedQueries - delta
+			console.log(`[deepResearch] expectedQueries reduced by ${delta} to ${this.progress.expectedQueries}`)
+			onProgressUpdated()
+		}
 
 		const limit = pLimit(this.concurrency)
 
