@@ -55,10 +55,7 @@ export function Providers() {
 								<CommandItem key={profileId} value={profileId} onSelect={onSelect}>
 									{profileName} ({providerName})
 									<Check
-										className={cn(
-											"ml-auto",
-											provider?.profileId === profileId ? "opacity-100" : "opacity-0",
-										)}
+										className={cn("ml-auto", { hidden: provider?.profileName !== profileName })}
 									/>
 								</CommandItem>
 							))}
