@@ -23,7 +23,7 @@ export const DeepResearch = ({ isHidden }: DeepResearchProps) => {
 
 	return (
 		<div
-			className={cn("lex flex-col items-center justify-center h-full gap-4 overflow-y-auto py-4", {
+			className={cn("flex flex-col items-center justify-center h-full min-w-64 gap-4 overflow-auto py-4", {
 				hidden: isHidden,
 			})}>
 			<GetStarted />

@@ -20,6 +20,7 @@ import {
 	ResearchQuery,
 } from "./types"
 import { truncatePrompt, trimPrompt } from "./utils/prompt"
+import { getTreeSize } from "./utils/progress"
 
 export class DeepResearchService {
 	public readonly providerId: string
@@ -183,51 +184,17 @@ export class DeepResearchService {
 		const results = await Promise.all(
 			queries.map(({ query, researchGoal }) =>
 				limit(async () => {
-					try {
-						if (this.isAborted()) {
-							return { learnings, visitedUrls }
-						}
+					if (this.isAborted()) {
+						return { learnings, visitedUrls }
+					}
 
-						const result = await this.firecrawl.search(query, {
+					let result: SearchResponse
+
+					try {
+						result = await this.firecrawl.search(query, {
 							timeout: 15000,
 							limit: 5,
 							scrapeOptions: { formats: ["markdown"] },
-						})
-
-						const newUrls = result.data
-							.map(({ url }) => url)
-							.filter((url): url is string => url !== undefined)
-
-						const newBreadth = Math.ceil(breadth / 2)
-						const newDepth = depth - 1
-						const newLearnings = await this.extractLearnings({ query, result, breadth: newBreadth })
-						const allLearnings = [...learnings, ...newLearnings.learnings]
-						const allUrls = [...visitedUrls, ...newUrls]
-						onExtractedLearnings({ ...newLearnings, urls: newUrls })
-
-						this.progress.completedQueries = this.progress.completedQueries + 1
-						onProgressUpdated()
-
-						if (newDepth === 0) {
-							return { learnings: allLearnings, visitedUrls: allUrls }
-						}
-
-						console.log(`[deepResearch] researching deeper, breadth: ${newBreadth}, depth: ${newDepth}`)
-
-						const nextQuery = trimPrompt(`
-							Previous research goal: ${researchGoal}
-							Follow-up research directions: ${newLearnings.followUpQuestions.map((q) => `\n${q}`).join("")}
-						`)
-
-						return this.deepResearch({
-							query: nextQuery,
-							breadth: newBreadth,
-							depth: newDepth,
-							learnings: allLearnings,
-							visitedUrls: allUrls,
-							onProgressUpdated,
-							onGeneratedQueries,
-							onExtractedLearnings,
 						})
 					} catch (e) {
 						const text = e instanceof Error ? e.message : "Unknown error"
@@ -235,11 +202,60 @@ export class DeepResearchService {
 
 						await this.postMessage({
 							type: "research.error",
-							text: `Encountered an error while researching "${query}": ${text}`,
+							text: `Encountered an error while crawling "${query}": ${text}`,
 						})
 
-						return { learnings: [], visitedUrls: [] }
+						return { learnings, visitedUrls }
 					}
+
+					const newUrls = result.data.map(({ url }) => url).filter((url): url is string => url !== undefined)
+
+					const newBreadth = Math.ceil(breadth / 2)
+					const newDepth = depth - 1
+					let newLearnings: ResearchLearnings
+
+					try {
+						newLearnings = await this.extractLearnings({ query, result, breadth: newBreadth })
+					} catch (e) {
+						const text = e instanceof Error ? e.message : "Unknown error"
+						console.log(`[deepResearch] error = ${text}`)
+
+						await this.postMessage({
+							type: "research.error",
+							text: `Encountered an error while extracting learnings from "${query}": ${text}`,
+						})
+
+						return { learnings, visitedUrls }
+					}
+
+					const allLearnings = [...learnings, ...newLearnings.learnings]
+					const allUrls = [...visitedUrls, ...newUrls]
+					onExtractedLearnings({ ...newLearnings, urls: newUrls })
+
+					this.progress.completedQueries = this.progress.completedQueries + 1
+					onProgressUpdated()
+
+					if (newDepth === 0) {
+						return { learnings: allLearnings, visitedUrls: allUrls }
+					}
+
+					console.log(`[deepResearch] researching deeper, breadth: ${newBreadth}, depth: ${newDepth}`)
+
+					const nextQuery = trimPrompt(`
+						Previous research goal: ${researchGoal}
+						Follow-up research directions: ${newLearnings.followUpQuestions.map((q) => `\n${q}`).join("")}
+					`)
+
+					return this.deepResearch({
+						query: nextQuery,
+						breadth: newBreadth,
+						depth: newDepth,
+						learnings: allLearnings,
+						visitedUrls: allUrls,
+						onProgressUpdated,
+						onGeneratedQueries,
+						onExtractedLearnings,
+					})
 				}),
 			),
 		)
@@ -326,7 +342,7 @@ export class DeepResearchService {
 				schema,
 			})
 
-			console.log(`[generateQueries] generated ${queries.length} queries`, queries)
+			console.log(`[generateQueries] generated ${queries.length} (out of ${breadth}) queries`, queries)
 
 			return queries.slice(0, breadth)
 		} catch (error) {
@@ -530,14 +546,13 @@ export class DeepResearchService {
 				}),
 			})
 
-		// Calculate total expected queries across all depth levels.
-		// At each level, the breadth is halved, so level 1 has full breadth,
-		// level 2 has breadth/2, level 3 has breadth/4, etc.
-		for (let i = this.depth; i > 0; i--) {
-			this.progress.expectedQueries += Math.ceil(this.breadth / Math.pow(2, this.depth - i))
-		}
-
+		this.progress.expectedQueries = getTreeSize({ breadth: this.breadth, depth: this.depth })
 		onProgressUpdated()
+
+		console.log(`[transitionToResearch] query = ${query}`)
+		console.log(`[transitionToResearch] breadth = ${this.breadth}`)
+		console.log(`[transitionToResearch] depth = ${this.depth}`)
+		console.log(`[transitionToResearch] expectedQueries = ${this.progress.expectedQueries}`)
 
 		const { learnings, visitedUrls } = await this.withLoading(
 			() =>

@@ -8,7 +8,7 @@ export const sessionSchema = z.object({
 	firecrawlApiKey: z.string().min(1, { message: "Firecrawl API key is required." }),
 	modelId: z.string().min(1, { message: "Model is required." }),
 	breadth: z.number().min(1).max(10, { message: "Breadth must be between 1 and 10." }),
-	depth: z.number().min(1).max(10, { message: "Depth must be between 1 and 10." }),
+	depth: z.number().min(0).max(9, { message: "Depth must be between 0 and 9." }),
 	query: z.string().min(1, { message: "Research topic is required." }),
 })
 

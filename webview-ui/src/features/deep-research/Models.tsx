@@ -61,7 +61,7 @@ export function Models() {
 							variant="combobox"
 							role="combobox"
 							aria-expanded={open}
-							className={cn(open && "border-vscode-focusBorder")}>
+							className={cn("flex-1", open && "border-vscode-focusBorder")}>
 							{value ? models.find((model) => model === value) : "Select"}
 							<ChevronsUpDown className="opacity-50" />
 						</Button>
