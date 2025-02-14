@@ -516,7 +516,7 @@ export class DeepResearchService {
 			idle: () => this.handleIdle(content),
 			followUp: () => this.handleFollowUp(content),
 			research: () => console.log("NOOP", content),
-			done: () => this.handleDone(content),
+			done: () => this.handleDone({ role: "assistant", content }),
 		} as const
 
 		await stateHandlers[this.status]()
