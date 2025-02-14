@@ -95,7 +95,9 @@ export interface WebviewMessage {
 		| "maxOpenTabsContext"
 		| "research.task"
 		| "research.input"
-		| "research.stop"
+		| "research.viewReport"
+		| "research.createTask"
+		| "research.abort"
 		| "research.reset"
 	text?: string
 	disabled?: boolean

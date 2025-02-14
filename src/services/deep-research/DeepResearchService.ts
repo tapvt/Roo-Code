@@ -1,3 +1,6 @@
+import path from "path"
+import os from "os"
+
 import { createOpenAI } from "@ai-sdk/openai"
 import { createOpenRouter } from "@openrouter/ai-sdk-provider"
 import FirecrawlApp, { SearchResponse } from "@mendable/firecrawl-js"
@@ -67,7 +70,7 @@ export class DeepResearchService {
 	}
 
 	/**
-	 * Prompts.
+	 * Prompts
 	 */
 
 	private researchSystemPrompt() {
@@ -121,7 +124,7 @@ export class DeepResearchService {
 	}
 
 	/**
-	 * LLM operations.
+	 * LLM
 	 */
 
 	public async generateFollowUps({ query, count = 1 }: { query: string; count?: number }) {
@@ -155,151 +158,6 @@ export class DeepResearchService {
 			return []
 		}
 	}
-
-	private async deepResearch({
-		query,
-		breadth,
-		depth,
-		learnings = [],
-		visitedUrls = [],
-		onProgressUpdated,
-		onGeneratedQueries,
-		onExtractedLearnings,
-	}: ResearchStep): Promise<ResearchResult> {
-		if (this.isAborted()) {
-			return { learnings, visitedUrls }
-		}
-
-		const queries = await this.generateQueries({ query, learnings, breadth })
-		onGeneratedQueries(queries)
-
-		if (queries.length < breadth) {
-			const delta = breadth - queries.length
-			this.progress.expectedQueries = this.progress.expectedQueries - delta
-			console.log(`[deepResearch] expectedQueries reduced by ${delta} to ${this.progress.expectedQueries}`)
-			onProgressUpdated()
-		}
-
-		const limit = pLimit(this.concurrency)
-
-		const results = await Promise.all(
-			queries.map(({ query, researchGoal }) =>
-				limit(async () => {
-					if (this.isAborted()) {
-						return { learnings, visitedUrls }
-					}
-
-					let result: SearchResponse
-
-					try {
-						result = await this.firecrawl.search(query, {
-							timeout: 15000,
-							limit: 5,
-							scrapeOptions: { formats: ["markdown"] },
-						})
-					} catch (e) {
-						const text = e instanceof Error ? e.message : "Unknown error"
-						console.log(`[deepResearch] error = ${text}`)
-
-						await this.postMessage({
-							type: "research.error",
-							text: `Encountered an error while crawling "${query}": ${text}`,
-						})
-
-						return { learnings, visitedUrls }
-					}
-
-					const newUrls = result.data.map(({ url }) => url).filter((url): url is string => url !== undefined)
-
-					const newBreadth = Math.ceil(breadth / 2)
-					const newDepth = depth - 1
-					let newLearnings: ResearchLearnings
-
-					try {
-						newLearnings = await this.extractLearnings({ query, result, breadth: newBreadth })
-					} catch (e) {
-						const text = e instanceof Error ? e.message : "Unknown error"
-						console.log(`[deepResearch] error = ${text}`)
-
-						await this.postMessage({
-							type: "research.error",
-							text: `Encountered an error while extracting learnings from "${query}": ${text}`,
-						})
-
-						return { learnings, visitedUrls }
-					}
-
-					const allLearnings = [...learnings, ...newLearnings.learnings]
-					const allUrls = [...visitedUrls, ...newUrls]
-					onExtractedLearnings({ ...newLearnings, urls: newUrls })
-
-					this.progress.completedQueries = this.progress.completedQueries + 1
-					onProgressUpdated()
-
-					if (newDepth <= 0) {
-						return { learnings: allLearnings, visitedUrls: allUrls }
-					}
-
-					console.log(`[deepResearch] researching deeper, breadth: ${newBreadth}, depth: ${newDepth}`)
-
-					const nextQuery = trimPrompt(`
-						Previous research goal: ${researchGoal}
-						Follow-up research directions: ${newLearnings.followUpQuestions.map((q) => `\n${q}`).join("")}
-					`)
-
-					return this.deepResearch({
-						query: nextQuery,
-						breadth: newBreadth,
-						depth: newDepth,
-						learnings: allLearnings,
-						visitedUrls: allUrls,
-						onProgressUpdated,
-						onGeneratedQueries,
-						onExtractedLearnings,
-					})
-				}),
-			),
-		)
-
-		return {
-			learnings: [...new Set(results.flatMap((r) => r.learnings))],
-			visitedUrls: [...new Set(results.flatMap((r) => r.visitedUrls))],
-		}
-	}
-
-	private async generateReport({ learnings, visitedUrls }: { learnings: string[]; visitedUrls: string[] }) {
-		const learningsString = truncatePrompt(
-			learnings.map((learning) => `<learning>\n${learning}\n</learning>`).join("\n"),
-			150_000,
-		)
-
-		const prompt = trimPrompt(`
-			Given the following prompt from the user, write a final report on the topic using the learnings from research.
-			Make it as as detailed as possible, aim for 3 or more pages, include ALL the learnings from research:
-
-			<prompt>${this.inquiry!.query}</prompt>
-
-			Here are all the learnings from previous research:
-
-			<learnings>
-			${learningsString}
-			</learnings>
-		`)
-
-		const schema = z.object({
-			reportMarkdown: z.string().describe("Final report on the topic in Markdown"),
-		})
-
-		const {
-			object: { reportMarkdown },
-		} = await generateObject({ model: this.model, system: this.researchSystemPrompt(), prompt, schema })
-
-		return reportMarkdown + `\n\n## Sources\n\n${visitedUrls.map((url) => `- ${url}`).join("\n")}`
-	}
-
-	/**
-	 * Crawl operations.
-	 */
 
 	private async generateQueries({
 		query,
@@ -357,7 +215,7 @@ export class DeepResearchService {
 		}
 	}
 
-	private async extractLearnings({
+	private async generateLearnings({
 		query,
 		result,
 		breadth,
@@ -373,7 +231,7 @@ export class DeepResearchService {
 			.filter((content) => content !== undefined)
 			.map((content) => truncatePrompt(content, 25_000))
 
-		console.log(`[extractLearnings] extracting learings from  "${query}"`)
+		console.log(`[generateLearnings] extracting learnings from "${query}"`)
 
 		const prompt = trimPrompt(`
 			Given the following contents from a SERP search for the query <query>${query}</query>, generate a list of learnings from the contents.
@@ -404,7 +262,7 @@ export class DeepResearchService {
 				abortSignal: AbortSignal.timeout(60_000),
 			})
 
-			console.log(`[extractLearnings] extracted ${object.learnings.length} learnings`, object.learnings)
+			console.log(`[generateLearnings] extracted ${object.learnings.length} learnings`, object.learnings)
 
 			return object
 		} catch (error) {
@@ -418,90 +276,41 @@ export class DeepResearchService {
 		}
 	}
 
-	/**
-	 * State handlers.
-	 *
-	 * idle -> feedback -> research -> idle
-	 */
+	private async generateReport({ learnings, visitedUrls }: { learnings: string[]; visitedUrls: string[] }) {
+		const learningsString = truncatePrompt(
+			learnings.map((learning) => `<learning>\n${learning}\n</learning>`).join("\n"),
+			150_000,
+		)
 
-	private async handleIdle(query: string) {
-		this.status = "followUp"
-		this.inquiry = { initialQuery: query, followUps: [], responses: [] }
-		this.inquiry.followUps = await this.generateFollowUps({ query })
-		await this.handleFollowUp(null)
-	}
+		const prompt = trimPrompt(`
+			Given the following prompt from the user, write a final report on the topic using the learnings from research.
+			Make it as as detailed as possible, aim for 3 or more pages, include ALL the learnings from research:
 
-	private async handleFollowUp(content: string | null) {
-		if (content) {
-			this.inquiry.responses.push(content)
-		}
+			<prompt>${this.inquiry!.query}</prompt>
 
-		this.inquiry.responses.length >= this.inquiry.followUps.length
-			? await this.transitionToResearch()
-			: await this.postMessage({
-					type: "research.output",
-					text: JSON.stringify({
-						content: this.inquiry.followUps[this.inquiry.responses.length],
-						annotations: [
-							{
-								type: "badge",
-								data: { label: "Follow Up", variant: "outline" },
-							},
-						],
-					}),
-				})
-	}
+			Here are all the learnings from previous research:
 
-	public async handleDone(message: { role: "user" | "assistant"; content: string }) {
-		this.messages.push({ id: crypto.randomUUID(), ...message })
+			<learnings>
+			${learningsString}
+			</learnings>
+		`)
 
-		const content = await this.withLoading(async () => {
-			try {
-				const { fullStream } = await streamText({
-					model: this.model,
-					system: this.chatSystemPrompt(),
-					messages: this.messages,
-				})
-
-				let buffer = ""
-
-				for await (const chunk of fullStream) {
-					console.log("[handleDone] chunk =", chunk)
-
-					switch (chunk.type) {
-						case "text-delta":
-							buffer += chunk.textDelta
-							break
-						case "error":
-							const text = chunk.error instanceof Error ? chunk.error.message : "Unknown error."
-							console.log(`[handleDone] error = ${text}`)
-							await this.postMessage({ type: "research.error", text })
-							return buffer
-					}
-				}
-
-				return buffer
-			} catch (error) {
-				const text = error instanceof Error ? error.message : "Unknown error."
-				console.log(`[handleDone] error = ${text}`)
-				await this.postMessage({ type: "research.error", text })
-				return undefined
-			}
+		const schema = z.object({
+			reportMarkdown: z.string().describe("Final report on the topic in Markdown"),
 		})
 
-		if (content) {
-			await this.postMessage({
-				type: "research.output",
-				text: JSON.stringify({ content }),
-			})
-		}
+		const {
+			object: { reportMarkdown },
+		} = await generateObject({ model: this.model, system: this.researchSystemPrompt(), prompt, schema })
+
+		return reportMarkdown + `\n\n## Sources\n\n${visitedUrls.map((url) => `- ${url}`).join("\n")}`
 	}
 
 	/**
-	 * State transitions.
+	 * Deep Research
 	 */
 
-	private async transitionToResearch() {
+	private async startDeepResearch() {
 		this.status = "research"
 
 		const query = trimPrompt(`
@@ -580,6 +389,8 @@ export class DeepResearchService {
 		const report = await this.withLoading(() => this.generateReport({ learnings, visitedUrls }), "Summarizing...")
 		this.inquiry.report = report
 
+		await this.viewReport()
+
 		await this.postMessage({
 			type: "research.output",
 			text: JSON.stringify({
@@ -588,18 +399,7 @@ export class DeepResearchService {
 			}),
 		})
 
-		this.transitionToDone()
-	}
-
-	private async transitionToDone() {
 		this.status = "done"
-
-		const document = await vscode.workspace.openTextDocument({
-			content: this.inquiry.report,
-			language: "markdown",
-		})
-
-		await vscode.window.showTextDocument(document, { preview: false })
 
 		this.messages.push({
 			id: crypto.randomUUID(),
@@ -635,8 +435,121 @@ export class DeepResearchService {
 		})
 	}
 
+	private async deepResearch({
+		query,
+		breadth,
+		depth,
+		learnings = [],
+		visitedUrls = [],
+		onProgressUpdated,
+		onGeneratedQueries,
+		onExtractedLearnings,
+	}: ResearchStep): Promise<ResearchResult> {
+		if (this.isAborted()) {
+			return { learnings, visitedUrls }
+		}
+
+		const queries = await this.generateQueries({ query, learnings, breadth })
+		onGeneratedQueries(queries)
+
+		if (queries.length < breadth) {
+			const delta = breadth - queries.length
+			this.progress.expectedQueries = this.progress.expectedQueries - delta
+			console.log(`[deepResearch] expectedQueries reduced by ${delta} to ${this.progress.expectedQueries}`)
+			onProgressUpdated()
+		}
+
+		const limit = pLimit(this.concurrency)
+
+		const results = await Promise.all(
+			queries.map(({ query, researchGoal }) =>
+				limit(async () => {
+					if (this.isAborted()) {
+						return { learnings, visitedUrls }
+					}
+
+					let result: SearchResponse
+
+					try {
+						result = await this.firecrawl.search(query, {
+							timeout: 15000,
+							limit: 5,
+							scrapeOptions: { formats: ["markdown"] },
+						})
+					} catch (e) {
+						const text = e instanceof Error ? e.message : "Unknown error"
+						console.log(`[deepResearch] error = ${text}`)
+
+						await this.postMessage({
+							type: "research.error",
+							text: `Encountered an error while crawling "${query}": ${text}`,
+						})
+
+						return { learnings, visitedUrls }
+					}
+
+					const newUrls = result.data.map(({ url }) => url).filter((url): url is string => url !== undefined)
+
+					const newBreadth = Math.ceil(breadth / 2)
+					const newDepth = depth - 1
+					let newLearnings: ResearchLearnings
+
+					try {
+						newLearnings = await this.generateLearnings({ query, result, breadth: newBreadth })
+					} catch (e) {
+						const text = e instanceof Error ? e.message : "Unknown error"
+						console.log(`[deepResearch] error = ${text}`)
+
+						await this.postMessage({
+							type: "research.error",
+							text: `Encountered an error while extracting learnings from "${query}": ${text}`,
+						})
+
+						return { learnings, visitedUrls }
+					}
+
+					const allLearnings = [...learnings, ...newLearnings.learnings]
+					const allUrls = [...visitedUrls, ...newUrls]
+					onExtractedLearnings({ ...newLearnings, urls: newUrls })
+
+					this.progress.completedQueries = this.progress.completedQueries + 1
+					onProgressUpdated()
+
+					if (newDepth <= 0) {
+						return { learnings: allLearnings, visitedUrls: allUrls }
+					}
+
+					console.log(`[deepResearch] researching deeper, breadth: ${newBreadth}, depth: ${newDepth}`)
+
+					const nextQuery = trimPrompt(`
+						Previous research goal: ${researchGoal}
+						Follow-up research directions: ${newLearnings.followUpQuestions.map((q) => `\n${q}`).join("")}
+					`)
+
+					return this.deepResearch({
+						query: nextQuery,
+						breadth: newBreadth,
+						depth: newDepth,
+						learnings: allLearnings,
+						visitedUrls: allUrls,
+						onProgressUpdated,
+						onGeneratedQueries,
+						onExtractedLearnings,
+					})
+				}),
+			),
+		)
+
+		return {
+			learnings: [...new Set(results.flatMap((r) => r.learnings))],
+			visitedUrls: [...new Set(results.flatMap((r) => r.visitedUrls))],
+		}
+	}
+
 	/**
-	 * Event handlers.
+	 * Events
+	 *
+	 * idle -> feedback -> research -> done -> aborted
 	 */
 
 	public async append(content: string) {
@@ -659,14 +572,82 @@ export class DeepResearchService {
 		await stateHandlers[this.status]()
 	}
 
-	/**
-	 * Statuses.
-	 */
-
-	public abort() {
-		console.log("[abort] aborting")
-		this.status = "aborted"
+	private async handleIdle(query: string) {
+		this.status = "followUp"
+		this.inquiry = { initialQuery: query, followUps: [], responses: [] }
+		this.inquiry.followUps = await this.generateFollowUps({ query })
+		await this.handleFollowUp(null)
 	}
+
+	private async handleFollowUp(content: string | null) {
+		if (content) {
+			this.inquiry.responses.push(content)
+		}
+
+		this.inquiry.responses.length >= this.inquiry.followUps.length
+			? await this.startDeepResearch()
+			: await this.postMessage({
+					type: "research.output",
+					text: JSON.stringify({
+						content: this.inquiry.followUps[this.inquiry.responses.length],
+						annotations: [
+							{
+								type: "badge",
+								data: { label: "Follow Up", variant: "outline" },
+							},
+						],
+					}),
+				})
+	}
+
+	public async handleDone(message: { role: "user" | "assistant"; content: string }) {
+		this.messages.push({ id: crypto.randomUUID(), ...message })
+
+		const content = await this.withLoading(async () => {
+			try {
+				const { fullStream } = await streamText({
+					model: this.model,
+					system: this.chatSystemPrompt(),
+					messages: this.messages,
+				})
+
+				let buffer = ""
+
+				for await (const chunk of fullStream) {
+					console.log("[handleDone] chunk =", chunk)
+
+					switch (chunk.type) {
+						case "text-delta":
+							buffer += chunk.textDelta
+							break
+						case "error":
+							const text = chunk.error instanceof Error ? chunk.error.message : "Unknown error."
+							console.log(`[handleDone] error = ${text}`)
+							await this.postMessage({ type: "research.error", text })
+							return buffer
+					}
+				}
+
+				return buffer
+			} catch (error) {
+				const text = error instanceof Error ? error.message : "Unknown error."
+				console.log(`[handleDone] error = ${text}`)
+				await this.postMessage({ type: "research.error", text })
+				return undefined
+			}
+		})
+
+		if (content) {
+			await this.postMessage({
+				type: "research.output",
+				text: JSON.stringify({ content }),
+			})
+		}
+	}
+
+	/**
+	 * Statuses
+	 */
 
 	public isAborted() {
 		return this.status === "aborted"
@@ -687,7 +668,47 @@ export class DeepResearchService {
 	}
 
 	/**
-	 * Helpers.
+	 * Actions
+	 */
+
+	public abort() {
+		this.status = "aborted"
+	}
+
+	public async viewReport() {
+		const document = await this.upsertReport()
+		await vscode.window.showTextDocument(document, { preview: false })
+	}
+
+	public async createTask() {
+		const provider = this.providerRef.deref()
+
+		if (!provider) {
+			return
+		}
+
+		const document = await this.upsertReport()
+
+		if (provider) {
+			await provider.postStateToWebview()
+			await provider.postMessageToWebview({ type: "action", action: "chatButtonClicked" })
+
+			const mentionPath = vscode.workspace.workspaceFolders?.[0]
+				? `/${vscode.workspace.asRelativePath(document.uri)}`
+				: document.uri.fsPath
+
+			await provider.postMessageToWebview({
+				type: "invoke",
+				invoke: "setChatBoxMessage",
+				text: `@${mentionPath}`,
+			})
+
+			await provider.initClineWithTask()
+		}
+	}
+
+	/**
+	 * Helpers
 	 */
 
 	private async withLoading<T>(operation: () => Promise<T>, message?: string): Promise<T> {
@@ -706,5 +727,35 @@ export class DeepResearchService {
 		}
 
 		this.providerRef.deref()?.postMessageToWebview(message)
+	}
+
+	private async upsertReport() {
+		let document: vscode.TextDocument | undefined = undefined
+
+		if (this.inquiry.fileUri) {
+			try {
+				return await vscode.workspace.openTextDocument(this.inquiry.fileUri)
+			} catch (error) {
+				console.log(`[saveReport] unable to open ${this.inquiry.fileUri.fsPath}`)
+			}
+		}
+
+		const fileName = `Deep-Research-${Date.now()}.md`
+		const workspaceFolders = vscode.workspace.workspaceFolders
+		const folderUri = workspaceFolders?.[0]?.uri || vscode.Uri.file(path.join(os.tmpdir(), fileName))
+		const fileUri = vscode.Uri.joinPath(folderUri, fileName)
+
+		console.log(`[upsertReport] saving to ${fileUri.fsPath}`)
+
+		try {
+			await vscode.workspace.fs.writeFile(fileUri, Buffer.from(this.inquiry.report ?? ""))
+			document = await vscode.workspace.openTextDocument(fileUri)
+			this.inquiry.fileUri = fileUri
+		} catch (error) {
+			console.log(`[upsertReport] unable to save to ${fileUri.fsPath}, falling back to buffer`)
+			document = await vscode.workspace.openTextDocument({ content: this.inquiry.report, language: "markdown" })
+		}
+
+		return document
 	}
 }

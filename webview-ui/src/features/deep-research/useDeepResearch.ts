@@ -1,11 +1,16 @@
-import { useState } from "react"
+import { useCallback, useState } from "react"
 
 import { vscode } from "@/utils/vscode"
 
 import { ChatHandler, Message } from "@/components/ui/chat"
 import { Session } from "./types"
 
-export const useDeepResearch = (): ChatHandler => {
+type UseDeepResearch = ChatHandler & {
+	viewReport: () => void
+	createTask: () => void
+}
+
+export const useDeepResearch = (): UseDeepResearch => {
 	const [isLoading, setIsLoading] = useState(false)
 	const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined)
 	const [input, setInput] = useState("")
@@ -21,7 +26,7 @@ export const useDeepResearch = (): ChatHandler => {
 	}
 
 	const stop = () => {
-		vscode.postMessage({ type: "research.stop" })
+		vscode.postMessage({ type: "research.abort" })
 	}
 
 	const append = async (message: Message, options?: { data?: any }) => {
@@ -40,6 +45,14 @@ export const useDeepResearch = (): ChatHandler => {
 		vscode.postMessage({ type: "research.reset" })
 	}
 
+	const viewReport = useCallback(() => {
+		vscode.postMessage({ type: "research.viewReport" })
+	}, [])
+
+	const createTask = useCallback(() => {
+		vscode.postMessage({ type: "research.createTask" })
+	}, [])
+
 	return {
 		isLoading,
 		setIsLoading,
@@ -52,5 +65,7 @@ export const useDeepResearch = (): ChatHandler => {
 		stop,
 		append,
 		reset,
+		viewReport,
+		createTask,
 	}
 }

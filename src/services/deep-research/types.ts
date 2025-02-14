@@ -1,3 +1,4 @@
+import { Uri } from "vscode"
 import { z } from "zod"
 
 export interface ResearchInquiry {
@@ -8,6 +9,7 @@ export interface ResearchInquiry {
 	learnings?: string[]
 	urls?: string[]
 	report?: string
+	fileUri?: Uri
 }
 
 export type ResearchStep = {

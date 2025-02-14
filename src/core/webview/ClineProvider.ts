@@ -1544,7 +1544,13 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 
 						break
 					}
-					case "research.stop":
+					case "research.viewReport":
+						this.deepResearchService?.viewReport()
+						break
+					case "research.createTask":
+						this.deepResearchService?.createTask()
+						break
+					case "research.abort":
 						this.deepResearchService?.abort()
 						break
 					case "research.reset":

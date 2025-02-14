@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef } from "react"
 import { useEvent, useMount } from "react-use"
-import { Cross2Icon } from "@radix-ui/react-icons"
+import { Cross2Icon, ReaderIcon, RocketIcon } from "@radix-ui/react-icons"
 
 import { ExtensionMessage } from "../../../../src/shared/ExtensionMessage"
 
@@ -21,7 +21,7 @@ import { useSession } from "./useSession"
 export const Session = () => {
 	const { session, setSession } = useSession()
 	const handler = useDeepResearch()
-	const { setIsLoading, setLoadingMessage, start, append, reset } = handler
+	const { setIsLoading, setLoadingMessage, start, append, reset, viewReport, createTask } = handler
 	const initialized = useRef(false)
 	const [progress, setProgress] = useState<ResearchProgress>()
 	const [status, setStatus] = useState<ResearchStatus["status"]>()
@@ -137,6 +137,17 @@ export const Session = () => {
 				) : status === "research" && progress && progress.progressPercentage < 100 ? (
 					<div className="border-t border-vscode-editor-background p-4">
 						<Progress value={Math.max(progress.progressPercentage, 5)} />
+					</div>
+				) : status === "done" ? (
+					<div className="flex flex-row items-center justify-end gap-2 border-t border-vscode-editor-background p-4">
+						<Button variant="outline" size="sm" onClick={viewReport}>
+							<ReaderIcon />
+							View Report
+						</Button>
+						<Button variant="default" size="sm" onClick={createTask}>
+							<RocketIcon />
+							Create Task
+						</Button>
 					</div>
 				) : null}
 			</Chat>
