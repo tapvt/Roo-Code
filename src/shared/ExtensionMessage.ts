@@ -48,8 +48,9 @@ export interface ExtensionMessage {
 		| "currentCheckpointUpdated"
 		| "research.loading"
 		| "research.output"
-		| "research.question"
+		| "research.followUp"
 		| "research.progress"
+		| "research.learnings"
 		| "research.result"
 		| "research.error"
 	text?: string

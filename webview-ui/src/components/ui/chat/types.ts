@@ -1,12 +1,15 @@
 export interface Message {
 	role: "system" | "user" | "assistant" | "data"
 	content: string
-	annotations?: any
+	annotations?: MessageAnnotation[]
 }
 
 export type ChatHandler = {
 	isLoading: boolean
-	setIsLoading: (isLoading: boolean) => void
+	setIsLoading: (isLoading: boolean, message?: string) => void
+
+	loadingMessage?: string
+	setLoadingMessage?: (message: string) => void
 
 	input: string
 	setInput: (input: string) => void
@@ -27,6 +30,7 @@ export enum MessageAnnotationType {
 	EVENTS = "events",
 	SUGGESTED_QUESTIONS = "suggested_questions",
 	AGENT_EVENTS = "agent",
+	BADGES = "badges",
 }
 
 export type ImageData = {
@@ -81,6 +85,11 @@ export type AgentEventData = {
 
 export type SuggestedQuestionsData = string[]
 
+export type BadgeData = {
+	label: string
+	variant?: "default" | "secondary" | "destructive" | "outline"
+}
+
 export type AnnotationData =
 	| ImageData
 	| DocumentFileData
@@ -88,6 +97,7 @@ export type AnnotationData =
 	| EventData
 	| AgentEventData
 	| SuggestedQuestionsData
+	| BadgeData
 
 export type MessageAnnotation = {
 	type: MessageAnnotationType

@@ -23,24 +23,20 @@ export const Chat = ({ handler, ...props }: ChatProps) => {
 	)
 }
 
-const ChatComponent = ({ className, ...props }: HTMLAttributes<HTMLDivElement>) => {
+const ChatComponent = ({ className, children, ...props }: HTMLAttributes<HTMLDivElement>) => {
 	const { messages, reload, stop, isLoading } = useChatUI()
 
-	const messageLength = messages.length
-	const lastMessage = messages[messageLength - 1]
-	const isLastMessageFromAssistant = messageLength > 0 && lastMessage?.role !== "user"
+	const messageCount = messages.length
+	const lastMessage = messages[messageCount - 1]
+	const isLastMessageFromAssistant = messageCount > 0 && lastMessage?.role !== "user"
 	const showReload = reload && !isLoading && isLastMessageFromAssistant
 	const showStop = stop && isLoading
 
-	// The `isPending` flag indicates that stream response is not yet received
-	// from the server, so we show a loading indicator to give a better UX.
-	const isPending = isLoading && !isLastMessageFromAssistant
-
 	return (
-		<ChatMessagesProvider value={{ isPending, showReload, showStop, lastMessage, messageLength }}>
+		<ChatMessagesProvider value={{ showReload, showStop, lastMessage, messageCount }}>
 			<div className={cn("relative flex flex-col flex-1 min-h-0", className)} {...props}>
 				<ChatMessages />
-				{/* <ChatActions /> */}
+				{children}
 				<ChatInput />
 			</div>
 		</ChatMessagesProvider>

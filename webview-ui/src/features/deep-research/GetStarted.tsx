@@ -93,6 +93,7 @@ export const GetStarted = () => {
 							<div className="flex flex-row items-center gap-2">
 								<div className="w-14 shrink-0">Breadth</div>
 								<Slider
+									min={1}
 									max={10}
 									step={1}
 									value={[value]}
@@ -108,6 +109,7 @@ export const GetStarted = () => {
 							<div className="flex flex-row items-center gap-2">
 								<div className="w-14 shrink-0">Depth</div>
 								<Slider
+									min={1}
 									max={10}
 									step={1}
 									value={[value]}

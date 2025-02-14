@@ -352,3 +352,11 @@ vscode-dropdown::part(listbox) {
 input[cmdk-input]:focus {
 	outline: none;
 }
+
+/**
+ * Markdown
+ */
+
+.custom-markdown > pre {
+	background-color: transparent !important;
+}

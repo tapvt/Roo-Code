@@ -13,20 +13,41 @@ import { ChatMessage } from "./ChatMessage"
  */
 
 export function ChatMessages() {
-	const { messages, isLoading, append } = useChatUI()
-	const { lastMessage, messageLength } = useChatMessages()
+	const { messages, isLoading, loadingMessage, append } = useChatUI()
+	const { lastMessage, messageCount } = useChatMessages()
 
 	const scrollableChatContainerRef = useRef<HTMLDivElement>(null)
 
 	const scrollToBottom = () => {
 		if (scrollableChatContainerRef.current) {
-			scrollableChatContainerRef.current.scrollTop = scrollableChatContainerRef.current.scrollHeight
+			// Make the scrolling behavior more reliable when multiple messages
+			// arrive quickly.
+
+			// First scroll immediately to cancel any ongoing smooth scroll.
+			scrollableChatContainerRef.current.scrollTo({
+				top: scrollableChatContainerRef.current.scrollHeight,
+				behavior: "auto",
+			})
+
+			// Then trigger the smooth scroll.
+			requestAnimationFrame(() => {
+				scrollableChatContainerRef.current?.scrollTo({
+					top: scrollableChatContainerRef.current.scrollHeight,
+					behavior: "smooth",
+				})
+			})
 		}
 	}
 
 	useEffect(() => {
 		scrollToBottom()
-	}, [messageLength, lastMessage])
+	}, [messageCount, lastMessage])
+
+	useEffect(() => {
+		if (isLoading) {
+			scrollToBottom()
+		}
+	}, [isLoading])
 
 	return (
 		<div className="flex flex-col flex-1 min-h-0 overflow-auto" ref={scrollableChatContainerRef}>
@@ -34,12 +55,15 @@ export function ChatMessages() {
 				<ChatMessage
 					key={index}
 					message={message}
-					isLast={index === messageLength - 1}
+					isHeaderVisible={
+						!!message.annotations?.length || index === 0 || messages[index - 1].role !== message.role
+					}
+					isLast={index === messageCount - 1}
 					isLoading={isLoading}
 					append={append}
 				/>
 			))}
-			<ChatMessagesLoading />
+			{isLoading && <ChatMessagesLoading message={loadingMessage} />}
 		</div>
 	)
 }
@@ -48,14 +72,17 @@ export function ChatMessages() {
  * ChatMessagesLoading
  */
 
-function ChatMessagesLoading() {
-	const { isPending } = useChatMessages()
+type ChatMessagesLoadingProps = {
+	message?: string
+}
 
-	return isPending ? (
-		<div className="flex items-center justify-center pt-4">
+function ChatMessagesLoading({ message }: ChatMessagesLoadingProps) {
+	return (
+		<div className="flex items-center justify-center py-4">
 			<Loader2 className="h-4 w-4 animate-spin" />
+			{message && <div className="ml-2 text-sm text-muted-foreground">{message}</div>}
 		</div>
-	) : null
+	)
 }
 
 /**

@@ -5,70 +5,71 @@ import {
 	DocumentFileData,
 	EventData,
 	ImageData,
-	MessageAnnotation,
 	MessageAnnotationType,
 	SuggestedQuestionsData,
 } from "./types"
 
 import { ChatAgentEvents, ChatEvents, ChatFiles, ChatImage, ChatSources, SuggestedQuestions } from "./annotations"
 import { getAnnotationData, getSourceAnnotationData } from "./annotations/annotation"
+import { Markdown } from "./widgets/Markdown"
 
-export function EventAnnotations({ message, showLoading }: { message: Message; showLoading: boolean }) {
-	const annotations = message.annotations as MessageAnnotation[] | undefined
-	const eventData =
-		annotations && annotations.length > 0
-			? getAnnotationData<EventData>(annotations, MessageAnnotationType.EVENTS)
-			: null
-	if (!eventData?.length) return null
-	return <ChatEvents data={eventData} showLoading={showLoading} />
+export function EventAnnotations({
+	message: { annotations = [] },
+	showLoading,
+}: {
+	message: Message
+	showLoading: boolean
+}) {
+	const data = annotations.length > 0 ? getAnnotationData<EventData>(annotations, MessageAnnotationType.EVENTS) : null
+	return data?.length ? <ChatEvents data={data} showLoading={showLoading} /> : null
 }
 
-export function AgentEventAnnotations({ message }: { message: Message }) {
-	const annotations = message.annotations as MessageAnnotation[] | undefined
-	const agentEventData =
-		annotations && annotations.length > 0
+export function AgentEventAnnotations({ message: { annotations = [], content } }: { message: Message }) {
+	const data =
+		annotations.length > 0
 			? getAnnotationData<AgentEventData>(annotations, MessageAnnotationType.AGENT_EVENTS)
 			: null
-	if (!agentEventData?.length) return null
-	return <ChatAgentEvents data={agentEventData} isFinished={Boolean(message.content)} />
+
+	return data?.length ? <ChatAgentEvents data={data} isFinished={Boolean(content)} /> : null
 }
 
-export function ImageAnnotations({ message }: { message: Message }) {
-	const annotations = message.annotations as MessageAnnotation[] | undefined
-	const imageData = annotations && annotations.length > 0 ? getAnnotationData<ImageData>(annotations, "image") : null
-	if (!imageData) return null
-	return imageData[0] ? <ChatImage data={imageData[0]} /> : null
+export function ImageAnnotations({ message: { annotations = [] } }: { message: Message }) {
+	const imageData = annotations.length > 0 ? getAnnotationData<ImageData>(annotations, "image") : null
+	return imageData?.[0] ? <ChatImage data={imageData[0]} /> : null
 }
 
-export function DocumentFileAnnotations({ message }: { message: Message }) {
-	const annotations = message.annotations as MessageAnnotation[] | undefined
-	const contentFileData =
-		annotations && annotations.length > 0
+export function MarkdownAnnotations({ message: { annotations = [], content } }: { message: Message }) {
+	const sourceData = annotations.length > 0 ? getSourceAnnotationData(annotations) : null
+	return <Markdown content={content} sources={sourceData?.[0]} />
+}
+
+export function DocumentFileAnnotations({ message: { annotations = [] } }: { message: Message }) {
+	const documentFileData =
+		annotations.length > 0
 			? getAnnotationData<DocumentFileData>(annotations, MessageAnnotationType.DOCUMENT_FILE)
 			: null
-	if (!contentFileData) return null
-	return contentFileData[0] ? <ChatFiles data={contentFileData[0]} /> : null
+
+	return documentFileData?.[0] ? <ChatFiles data={documentFileData[0]} /> : null
 }
 
-export function SourceAnnotations({ message }: { message: Message }) {
-	const annotations = message.annotations as MessageAnnotation[] | undefined
-	const sourceData = annotations && annotations.length > 0 ? getSourceAnnotationData(annotations) : null
-	if (!sourceData) return null
-	return sourceData[0] ? <ChatSources data={sourceData[0]} /> : null
+export function SourceAnnotations({ message: { annotations = [] } }: { message: Message }) {
+	const sourceData = annotations.length > 0 ? getSourceAnnotationData(annotations) : null
+	return sourceData?.[0] ? <ChatSources data={sourceData[0]} /> : null
 }
 
 export function SuggestedQuestionsAnnotations({
-	message,
+	message: { annotations = [] },
 	append,
 }: {
 	message: Message
 	append: ChatHandler["append"]
 }) {
-	const annotations = message.annotations as MessageAnnotation[] | undefined
 	const suggestedQuestionsData =
-		annotations && annotations.length > 0
+		annotations.length > 0
 			? getAnnotationData<SuggestedQuestionsData>(annotations, MessageAnnotationType.SUGGESTED_QUESTIONS)
 			: null
-	if (!suggestedQuestionsData?.[0]) return null
-	return <SuggestedQuestions questions={suggestedQuestionsData[0]} append={append} />
+
+	return suggestedQuestionsData?.[0] ? (
+		<SuggestedQuestions questions={suggestedQuestionsData[0]} append={append} />
+	) : null
 }

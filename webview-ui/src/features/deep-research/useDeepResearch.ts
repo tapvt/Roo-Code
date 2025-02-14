@@ -7,6 +7,7 @@ import { Session } from "./types"
 
 export const useDeepResearch = (): ChatHandler => {
 	const [isLoading, setIsLoading] = useState(false)
+	const [loadingMessage, setLoadingMessage] = useState<string | undefined>(undefined)
 	const [input, setInput] = useState("")
 	const [messages, setMessages] = useState<Message[]>([])
 
@@ -43,5 +44,18 @@ export const useDeepResearch = (): ChatHandler => {
 		vscode.postMessage({ type: "research.reset" })
 	}
 
-	return { isLoading, setIsLoading, input, setInput, messages, reload, start, stop, append, reset }
+	return {
+		isLoading,
+		setIsLoading,
+		loadingMessage,
+		setLoadingMessage,
+		input,
+		setInput,
+		messages,
+		reload,
+		start,
+		stop,
+		append,
+		reset,
+	}
 }

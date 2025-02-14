@@ -4,17 +4,17 @@ import { BrainCircuit, CircleUserRound } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { useClipboard } from "@/hooks/useClipboard"
+import { Badge } from "@/components/ui"
 
-import { ChatHandler, Message, MessageAnnotation } from "./types"
+import { BadgeData, ChatHandler, Message, MessageAnnotationType } from "./types"
 import { ChatMessageProvider } from "./ChatMessageProvider"
 import { useChatMessage } from "./useChatMessage"
-import { Markdown } from "./widgets/Markdown"
-import { getSourceAnnotationData } from "./annotations/annotation"
 import {
-	AgentEventAnnotations,
-	DocumentFileAnnotations,
 	EventAnnotations,
+	AgentEventAnnotations,
 	ImageAnnotations,
+	MarkdownAnnotations,
+	DocumentFileAnnotations,
 	SourceAnnotations,
 	SuggestedQuestionsAnnotations,
 } from "./ChatAnnotations"
@@ -24,22 +24,30 @@ import {
  */
 
 interface ChatMessageProps {
-	isLoading?: boolean
-	isLast: boolean
 	message: Message
+	isHeaderVisible: boolean
+	isLast: boolean
+	isLoading?: boolean
 	append?: ChatHandler["append"]
 }
 
-export function ChatMessage({ isLoading, isLast, message, append }: ChatMessageProps) {
+export function ChatMessage({ message, isHeaderVisible, isLast, isLoading, append }: ChatMessageProps) {
+	const badges = useMemo(
+		() =>
+			message.annotations
+				?.filter(({ type }) => type === MessageAnnotationType.BADGES)
+				.map(({ data }) => data as BadgeData),
+		[message.annotations],
+	)
+
 	return (
 		<ChatMessageProvider value={{ message, isLast }}>
 			<div
-				className={cn("relative group flex", {
-					"flex-row-reverse": message.role === "user",
+				className={cn("relative group flex flex-col", {
 					"bg-vscode-input-background/50": message.role === "user",
 				})}>
-				<ChatMessageAvatar />
-				<ChatMessageContent isLoading={isLoading} append={append} />
+				{isHeaderVisible && <ChatMessageHeader badges={badges} />}
+				<ChatMessageContent isHeaderVisible={isHeaderVisible} isLoading={isLoading} append={append} />
 				<ChatMessageActions />
 			</div>
 		</ChatMessageProvider>
@@ -47,19 +55,44 @@ export function ChatMessage({ isLoading, isLast, message, append }: ChatMessageP
 }
 
 /**
- * ChatMessageAvatar
+ * ChatMessageHeader
  */
 
+interface ChatMessageHeaderProps {
+	badges?: BadgeData[]
+}
+
+function ChatMessageHeader({ badges }: ChatMessageHeaderProps) {
+	return (
+		<div className="flex flex-row items-center justify-between border-t border-accent px-3 pt-3 pb-1">
+			<ChatMessageAvatar />
+			{badges?.map(({ label, variant = "outline" }) => (
+				<Badge variant={variant} key={label}>
+					{label}
+				</Badge>
+			))}
+		</div>
+	)
+}
+
+/**
+ * ChatMessageAvatar
+ */
+const icons: Record<string, React.ReactNode> = {
+	user: <CircleUserRound className="h-4 w-4" />,
+	assistant: <BrainCircuit className="h-4 w-4" />,
+}
+
 function ChatMessageAvatar() {
-	const { message } = useChatMessage()
+	const {
+		message: { role },
+	} = useChatMessage()
 
-	const roleIconMap: Record<string, React.ReactNode> = {
-		user: <CircleUserRound className="h-4 w-4" />,
-		assistant: <BrainCircuit className="h-4 w-4" />,
-	}
-
-	return roleIconMap[message.role] ? (
-		<div className="shrink-0 opacity-25 select-none p-2">{roleIconMap[message.role]}</div>
+	return icons[role] ? (
+		<div className="flex flex-row items-center gap-1">
+			<div className="opacity-25 select-none">{icons[role]}</div>
+			<div className="text-muted">{role === "user" ? "You" : "Deep Research"}</div>
+		</div>
 	) : null
 }
 
@@ -93,14 +126,14 @@ type ContentDisplayConfig = {
 }
 
 interface ChatMessageContentProps {
+	isHeaderVisible: boolean
 	isLoading?: boolean
 	content?: ContentDisplayConfig[]
 	append?: ChatHandler["append"]
 }
 
-function ChatMessageContent({ isLoading, content, append }: ChatMessageContentProps) {
+function ChatMessageContent({ isHeaderVisible, isLoading, content, append }: ChatMessageContentProps) {
 	const { message, isLast } = useChatMessage()
-	const annotations = message.annotations as MessageAnnotation[] | undefined
 
 	const contents = useMemo<ContentDisplayConfig[]>(() => {
 		const displayMap: {
@@ -111,17 +144,11 @@ function ChatMessageContent({ isLoading, content, append }: ChatMessageContentPr
 			),
 			[ContentPosition.CHAT_AGENT_EVENTS]: <AgentEventAnnotations message={message} />,
 			[ContentPosition.CHAT_IMAGE]: <ImageAnnotations message={message} />,
-			[ContentPosition.MARKDOWN]: (
-				<Markdown
-					content={message.content}
-					sources={annotations ? getSourceAnnotationData(annotations)[0] : undefined}
-				/>
-			),
+			[ContentPosition.MARKDOWN]: <MarkdownAnnotations message={message} />,
 			[ContentPosition.CHAT_DOCUMENT_FILES]: <DocumentFileAnnotations message={message} />,
 			[ContentPosition.CHAT_SOURCES]: <SourceAnnotations message={message} />,
 			...(isLast &&
 				append && {
-					// Show suggested questions only on the last message.
 					[ContentPosition.SUGGESTED_QUESTIONS]: (
 						<SuggestedQuestionsAnnotations message={message} append={append} />
 					),
@@ -137,17 +164,17 @@ function ChatMessageContent({ isLoading, content, append }: ChatMessageContentPr
 			position: parseInt(position),
 			component,
 		}))
-	}, [annotations, isLast, isLoading, content, append, message])
+	}, [isLast, isLoading, content, append, message])
 
 	return (
 		<div
-			className={cn("flex flex-col gap-4 flex-1 min-w-0 px-2 pt-4 pb-6", {
-				"text-right": message.role === "user",
+			className={cn("flex flex-col gap-4 flex-1 min-w-0 px-4 pb-6", {
+				"pt-4": isHeaderVisible,
 			})}>
 			{contents
 				.sort((a, b) => a.position - b.position)
-				.map((content, index) => (
-					<Fragment key={index}>{content.component}</Fragment>
+				.map(({ component }, index) => (
+					<Fragment key={index}>{component}</Fragment>
 				))}
 		</div>
 	)

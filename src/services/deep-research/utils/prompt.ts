@@ -7,7 +7,7 @@ const MIN_CHUNK_SIZE = 140
 const encoder = getEncoding("o200k_base")
 
 // Trim prompt to maximum context size.
-export function trimPrompt(prompt: string, contextSize = Number(process.env.CONTEXT_SIZE) || 128_000) {
+export function truncatePrompt(prompt: string, contextSize = Number(process.env.CONTEXT_SIZE) || 128_000) {
 	if (!prompt) {
 		return ""
 	}
@@ -33,15 +33,22 @@ export function trimPrompt(prompt: string, contextSize = Number(process.env.CONT
 		chunkOverlap: 0,
 	})
 
-	const trimmedPrompt = splitter.splitText(prompt)[0] ?? ""
+	const truncated = splitter.splitText(prompt)[0] ?? ""
 
 	// Last catch, there's a chance that the trimmed prompt is same length as
 	// the original prompt, due to how tokens are split & innerworkings of the
 	// splitter, handle this case by just doing a hard cut.
-	if (trimmedPrompt.length === prompt.length) {
-		return trimPrompt(prompt.slice(0, chunkSize), contextSize)
+	if (truncated.length === prompt.length) {
+		return truncatePrompt(prompt.slice(0, chunkSize), contextSize)
 	}
 
 	// Recursively trim until the prompt is within the context size.
-	return trimPrompt(trimmedPrompt, contextSize)
+	return truncatePrompt(truncated, contextSize)
+}
+
+export function trimPrompt(prompt: string): string {
+	return prompt
+		.split("\n")
+		.map((line) => line.trim())
+		.join("\n")
 }

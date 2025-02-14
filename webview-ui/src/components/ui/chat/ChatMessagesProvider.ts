@@ -3,10 +3,9 @@ import { createContext } from "react"
 import type { Message } from "./types"
 
 interface ChatMessagesContext {
-	isPending: boolean
 	showReload?: boolean
 	showStop?: boolean
-	messageLength: number
+	messageCount: number
 	lastMessage: Message
 }
 
