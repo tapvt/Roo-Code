@@ -39,6 +39,9 @@ const getCommandsMap = ({ context, outputChannel, provider }: RegisterCommandOpt
 	"roo-cline.settingsButtonClicked": () => {
 		provider.postMessageToWebview({ type: "action", action: "settingsButtonClicked" })
 	},
+	"roo-cline.helpButtonClicked": () => {
+		vscode.env.openExternal(vscode.Uri.parse("https://docs.roocode.com"))
+	},
 	"roo-cline.openInNewTab": () => openClineInNewTab({ context, outputChannel }),
 })
 

@@ -92,6 +92,7 @@ export interface WebviewMessage {
 		| "openCustomModesSettings"
 		| "checkpointDiff"
 		| "checkpointRestore"
+		| "maxOpenTabsContext"
 		| "research.task"
 		| "research.input"
 		| "research.stop"
@@ -118,6 +119,7 @@ export interface WebviewMessage {
 	modeConfig?: ModeConfig
 	timeout?: number
 	payload?: WebViewMessagePayload
+	source?: "global" | "project"
 }
 
 /**

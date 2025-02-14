@@ -135,6 +135,7 @@ type GlobalStateKey =
 	| "requestyModelInfo"
 	| "unboundModelInfo"
 	| "modelTemperature"
+	| "maxOpenTabsContext"
 
 export const GlobalFileNames = {
 	apiConversationHistory: "api_conversation_history.json",
@@ -1215,6 +1216,11 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 					}
 					case "screenshotQuality":
 						await this.updateGlobalState("screenshotQuality", message.value)
+						await this.postStateToWebview()
+						break
+					case "maxOpenTabsContext":
+						const tabCount = Math.min(Math.max(0, message.value ?? 20), 500)
+						await this.updateGlobalState("maxOpenTabsContext", tabCount)
 						await this.postStateToWebview()
 						break
 					case "enhancementApiConfigId":
@@ -2433,6 +2439,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			enhancementApiConfigId,
 			autoApprovalEnabled,
 			experiments,
+			maxOpenTabsContext,
 		} = await this.getState()
 
 		const allowedCommands = vscode.workspace.getConfiguration("roo-cline").get<string[]>("allowedCommands") || []
@@ -2482,6 +2489,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			customModes: await this.customModesManager.getCustomModes(),
 			experiments: experiments ?? experimentDefault,
 			mcpServers: this.mcpHub?.getAllServers() ?? [],
+			maxOpenTabsContext: maxOpenTabsContext ?? 20,
 		}
 	}
 
@@ -2617,6 +2625,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			requestyModelId,
 			requestyModelInfo,
 			modelTemperature,
+			maxOpenTabsContext,
 			firecrawlApiKey,
 		] = await Promise.all([
 			this.getGlobalState("apiProvider") as Promise<ApiProvider | undefined>,
@@ -2698,6 +2707,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			this.getGlobalState("requestyModelId") as Promise<string | undefined>,
 			this.getGlobalState("requestyModelInfo") as Promise<ModelInfo | undefined>,
 			this.getGlobalState("modelTemperature") as Promise<number | undefined>,
+			this.getGlobalState("maxOpenTabsContext") as Promise<number | undefined>,
 			this.getSecret("firecrawlApiKey") as Promise<string | undefined>,
 		])
 
@@ -2826,6 +2836,7 @@ export class ClineProvider implements vscode.WebviewViewProvider {
 			experiments: experiments ?? experimentDefault,
 			autoApprovalEnabled: autoApprovalEnabled ?? false,
 			customModes,
+			maxOpenTabsContext: maxOpenTabsContext ?? 20,
 		}
 	}
 
